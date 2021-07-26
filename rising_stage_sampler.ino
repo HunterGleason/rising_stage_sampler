@@ -16,7 +16,7 @@
   https://www.arduino.cc/en/Tutorial/SleepRTCAlarm
 
   See wiring diagram:
-   
+  https://github.com/HunterGleason/rising_stage_sampler/blob/with_turb/siphon_sampler.svg 
   
  ****************************************************/
 
@@ -44,27 +44,37 @@ const byte chipSelect = 4;  //** CS - pin 4 (for MKRZero SD: SDCARD_SS_PIN)
 
 //Define Global constants
 const int RANGE = 5000; // Depth measuring range 5000mm (for water)
-const double CURRENT_INIT = 4.00; // Current @ 0mm (uint: mA)
+const double CURRENT_INIT = 4.00; // Current @ 0mm (uint: mA), may need to adjust ...
 const double DENSITY_WATER = 1.00;  // Pure water density
 const int H2O_VREF = 3300; //Refrence voltage, 3.3V for Adalogger M0
 const int TURB_VREF = 5000; //Refrence voltage, 5.0 for turbidity sensor (output from usb pin)
+const int MAX_ANALOG_VAL = 4096; // Maximum analog value at provided ADC resolution  
 
-const String filename = "HAY_CREEK.TXT"; //Desired name for logfile, change as needed.
 
-/* Change these values to set the current initial time */
+//Define Global variables
+const String filename = "HAY_CREEK.TXT";//Desired name for logfile, change as needed.
+
+// Change these values to set the current initial time
 const byte hours = 10;
 const byte minutes = 30;
 const byte seconds = 00;
-/* Change these values to set the current initial date */
+
+// Change these values to set the current initial date
 const byte day = 23;
 const byte month = 7;
 const byte year = 21;
 
-const int alarmIncMin = 5; //Number of minutes between sleep / read / log cycles, change as needed
-const int N = 3; //Number of sensor readings to average 
+const int alarmIncMin = 5;//Number of minutes between sleep / read / log cycles, change as needed
 
-//Define Global varibles
-bool matched = false; //Boolean variable for indicating alarm match
+const int N = 3;//Number of sensor readings to average, change as needed 
+
+bool matched = false;//Boolean variable for indicating alarm match
+
+//Function for converting voltage read from turbidty sensor 'turb_volt' to NTU units (from calibration), change as needed. 
+float Volt_to_NTU(float turb_volt)
+{
+  return turb_volt;
+}
 
 
 //Instantiate rtc and dataFile
@@ -88,7 +98,7 @@ void setup()
   //Attach an alarm interupt routine
   rtc.attachInterrupt(alarmMatch);
 
-  //Set resolution to 12 bit
+  //Set analog resolution to 12 bit
   analogReadResolution(12);
 
   //Initlize water level input pin as input
@@ -101,7 +111,7 @@ void setup()
   pinMode(H2O_LEVL_SWITCH, OUTPUT);
   digitalWrite(H2O_LEVL_SWITCH, LOW);
 
-  //Initilize turbidity witch pin as output and turn off 5V from USB pin until next reading
+  //Initilize turbidity switch pin as output and turn off 5V from USB pin until next reading
   pinMode(TURB_SWITCH, OUTPUT);
   digitalWrite(TURB_SWITCH, LOW);
 
@@ -110,7 +120,7 @@ void setup()
   digitalWrite(RED_LED, LOW);
 
 
-  // see if the SD card is present and can be initialized:
+  //See if the SD card is present and can be initialized:
   if (!SD.begin(chipSelect)) {
     // don't do anything more:
     while (1);
@@ -121,7 +131,7 @@ void setup()
   dataFile.println("DateTime,Level_mm,NTU");
   dataFile.close();
 
-  //Go into standby
+  //Set Adalogger into low power standby mode
   rtc.standbyMode();
 }
 
@@ -134,12 +144,13 @@ void loop()
     //Reset 'matched' alarm
     matched == false;
 
-    //Provide 12V on the water level senor through 4N35 optocoupler
+    //Provide 12V on the water level sensor via 4N35 optocoupler
     digitalWrite(H2O_LEVL_SWITCH, HIGH);
 
     //Allow time for water level sensor to stabalize (not sure what best duration is for this, check docs sheet?)
     delay(1000);
 
+    //Get an N average depth reading 
     float water_depth_mm = avgWaterLevl(N);
 
     //Switch off 12V to water level sensor to save battery
@@ -149,18 +160,18 @@ void loop()
     //Provide 5V on the turbidity sensor through 4N35 optocoupler
     digitalWrite(TURB_SWITCH, HIGH);
 
-    //Allow turbidty sensor to stabalize, looks like 500 ms is adaquate.
-    delay(500);
+    //Allow turbidty sensor to stabalize, datasheet indicates 500 ms is enough.
+    delay(1000);
 
     float turb_ntu = avgTurb(N);
 
     //Switch off 5V to turbidty probe to save battery
     digitalWrite(TURB_SWITCH, LOW);
     
-    //Data string to write to SD card
+    //Assemble data string to write to SD card
     String datastring = String(rtc.getDay()) + "-" + String(rtc.getMonth()) + "-" + String(rtc.getYear()) + " " + String(rtc.getHours()) + ":" + String(rtc.getMinutes()) + ":" + String(rtc.getSeconds()) + "," + String(water_depth_mm) + "," + String(turb_ntu);
 
-    //Write and close logfile on SD card
+    //Write datastring and close logfile on SD card
     dataFile = SD.open(filename, FILE_WRITE);
     if (dataFile)
     {
@@ -193,7 +204,7 @@ float avgWaterLevl(int n)
   for (int i = 0; i < n; i++)
   {
     //Read voltage output of H2O level sensor
-    float level_voltage =  analogRead(H2O_LEVL_PIN) * (H2O_VREF / 4096.0);
+    float level_voltage =  analogRead(H2O_LEVL_PIN) * (H2O_VREF / MAX_ANALOG_VAL);
 
     //Convert to current
     float level_current = level_voltage / 120.0; //Sense Resistor:120ohm
@@ -203,7 +214,7 @@ float avgWaterLevl(int n)
 
     avg_depth = avg_depth + depth;
 
-    delay(250);
+    delay(1000);
 
   }
 
@@ -216,24 +227,24 @@ float avgWaterLevl(int n)
 //Function for obtaining mean turbidty from n sensor readings
 float avgTurb(int n)
 {
-  float avg_turb = 0.0;
+  float avg_turb = 0.0; //Average turbidty voltage
 
   for (int i = 0; i < n; i++)
   {
 
     //Compute average voltage output of turbity probe (need to establish / verify voltage NTU curve)
-    float turb_voltage = analogRead(TURB_PIN) * (TURB_VREF / 4096.0); // Convert the analog reading (which goes from 0 - 4096) to a voltage (0 - 5V):
+    float turb_voltage = analogRead(TURB_PIN) * (TURB_VREF / MAX_ANALOG_VAL); // Convert the analog reading (which goes from 0 - 4096) to a voltage (0 - 5V):
 
     avg_turb = avg_turb + turb_voltage;
 
-    delay(250);
+    delay(500);
 
   }
 
-  avg_turb = avg_turb / (float)n;
+  avg_turb = avg_turb / (float)n; //Calculate average voltage of n readings
 
-  //Need to convert voltage to NTU here (calibration) 
-
+  avg_turb = Volt_to_NTU(avg_turb);//Need to convert voltage to NTU here (calibration) 
+  
   return avg_turb;
 
 }
