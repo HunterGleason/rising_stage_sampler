@@ -1,4 +1,3 @@
-
 /***********************************************************
   Author: Hunter Gleason
   Date:June 3, 2021
@@ -9,15 +8,15 @@
   and recording stage and turbidty to a SD card. Note, because
   a voltage divider is used to scale the 5V analog output
   from the turbidity to ~0-3.3V, it is assumed that
-  the user provide their own calibration. 
-  
+  the user provide their own calibration.
+
   Code based on:
   https://wiki.dfrobot.com/Gravity__Analog_Current_to_Voltage_Converter_for_4~20mA_Application__SKU_SEN0262
   https://wiki.dfrobot.com/Throw-in_Type_Liquid_Level_Transmitter_SKU_KIT0139
   https://www.arduino.cc/en/Tutorial/SleepRTCAlarm
   See wiring diagram:
-  https://github.com/HunterGleason/rising_stage_sampler/blob/with_turb/siphon_sampler.svg 
-  
+  https://github.com/HunterGleason/rising_stage_sampler/blob/with_turb/siphon_sampler.svg
+
  ****************************************************/
 
 /*PINS
@@ -26,6 +25,8 @@
    Liquid level sensor switch pin -> D9
    Turbidty sensor switch pin -> D6
 */
+
+
 
 //Load required libriries
 #include <SPI.h>
@@ -46,12 +47,12 @@ const float RANGE = 5000.0; // Depth measuring range 5000mm (for water)
 const float CURRENT_INIT = 4.00; // Current @ 0mm (uint: mA)
 const float DENSITY_WATER = 1.00;  // Pure water density
 const float H2O_VREF = 3300.0; //Refrence voltage, 3.3V for Adalogger M0, this should be measured for better accuracy
-const float TURB_VREF = 5000.0; //Refrence voltage, 5.0 for turbidity sensor (output from usb pin), this should be measured for better accuracy 
-const String filename = "anzac_site2.txt"; //Desired name for logfile, change as needed.
+const float TURB_VREF = 5000.0; //Refrence voltage, 5.0 for turbidity sensor (output from usb pin), this should be measured for better accuracy
+const String filename = "ANZ_S2.TXT"; //Desired name for logfile, change as needed, no more than 8 charachters!! w/ out EXT
 
 /* Change these values to set the current initial time (Time @ launch) */
-const byte hours = 15;
-const byte minutes = 38;
+const byte hours = 17;
+const byte minutes = 57;
 const byte seconds = 0;
 /* Change these values to set the current initial date (Date @ launch)*/
 const byte day = 5;
@@ -59,7 +60,7 @@ const byte month = 8;
 const byte year = 21;
 
 const int alarmIncMin = 1; //Number of minutes between sleep / read / log cycles (i.e., logging interval), change as needed
-const int N = 5; //Number of sensor readings to average 
+const int N = 5; //Number of sensor readings to average
 
 //Define Global varibles
 bool matched = false; //Boolean variable for indicating alarm match
@@ -108,16 +109,43 @@ void setup()
   digitalWrite(RED_LED, LOW);
 
 
-  // see if the SD card is present and can be initialized:
+  // Open serial communications and wait for port to open:
+  Serial.begin(9600);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+
+
+  Serial.print("Initializing SD card...");
+
+  // see if the card is present and can be initialized:
   if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
     // don't do anything more:
     while (1);
   }
+  Serial.println("card initialized.");
+
+
+  Serial.println();
+  Serial.print("Launch time: ");
+  Serial.print(hours);
+  Serial.print(":");
+  Serial.print(minutes);
+  Serial.print(":");
+  Serial.print(seconds);
+  Serial.println();
+  Serial.print("Saving data to: ");
+  Serial.println(filename);
+
 
   //Write header to logfile
   dataFile = SD.open(filename, FILE_WRITE);
   dataFile.println("DateTime,Level_mm,NTU");
   dataFile.close();
+
+  Serial.println("Begining logging routine ... Goodbye.");
+  Serial.end();
 
   //Go into standby
   rtc.standbyMode();
@@ -154,17 +182,17 @@ void loop()
 
     //Switch off 5V to turbidty probe to save battery
     digitalWrite(TURB_SWITCH, LOW);
-    
+
     //Data string to write to SD card
     String datastring = String(rtc.getDay()) + "-" + String(rtc.getMonth()) + "-" + String(rtc.getYear()) + " " + String(rtc.getHours()) + ":" + String(rtc.getMinutes()) + ":" + String(rtc.getSeconds()) + "," + String(water_depth_mm) + "," + String(turb_ntu);
 
-    //Write and close logfile on SD card
     dataFile = SD.open(filename, FILE_WRITE);
     if (dataFile)
     {
       dataFile.println(datastring);
       dataFile.close();
     }
+
 
     //Set next rtc wakeup alarm
     int alarmMinutes = rtc.getMinutes();
@@ -183,7 +211,7 @@ void alarmMatch() {
   matched = true;
 }
 
-//Function for converting turbidity probe output voltage to NTU (from calibration) 
+//Function for converting turbidity probe output voltage to NTU (from calibration)
 float Volt_to_NTU(float turb_volt)
 {
   return turb_volt;
@@ -236,7 +264,7 @@ float avgTurb(int n)
 
   avg_turb_v = avg_turb_v / (float)n;
 
-  //Need to convert voltage to NTU here (calibration) 
+  //Need to convert voltage to NTU here (calibration)
   float avg_ntu = Volt_to_NTU(avg_turb_v);
 
   return avg_ntu;
