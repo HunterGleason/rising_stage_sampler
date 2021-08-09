@@ -44,18 +44,18 @@ const byte chipSelect = 4;  //** CS - pin 4 (for MKRZero SD: SDCARD_SS_PIN)
 
 //Define Global constants
 const float RANGE = 5000.0; // Depth measuring range 5000mm (for water)
-const float CURRENT_INIT = 4.00; // Current @ 0mm (uint: mA)
+const float CURRENT_INIT = 4.19; // Current @ 0mm (uint: mA)
 const float DENSITY_WATER = 1.00;  // Pure water density
 const float H2O_VREF = 3300.0; //Refrence voltage, 3.3V for Adalogger M0, this should be measured for better accuracy
 const float TURB_VREF = 5000.0; //Refrence voltage, 5.0 for turbidity sensor (output from usb pin), this should be measured for better accuracy
-const String filename = "ANZ_S2.TXT"; //Desired name for logfile, change as needed, no more than 8 charachters!! w/ out EXT
+const String filename = "DATA.TXT"; //Desired name for logfile, change as needed, no more than 8 charachters!! w/ out EXT
 
 /* Change these values to set the current initial time (Time @ launch) */
-const byte hours = 17;
-const byte minutes = 57;
+const byte hours = 12;
+const byte minutes = 46;
 const byte seconds = 0;
 /* Change these values to set the current initial date (Date @ launch)*/
-const byte day = 5;
+const byte day = 9;
 const byte month = 8;
 const byte year = 21;
 
@@ -108,44 +108,20 @@ void setup()
   pinMode(RED_LED, OUTPUT);
   digitalWrite(RED_LED, LOW);
 
-
-  // Open serial communications and wait for port to open:
-  Serial.begin(9600);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
-
-
-  Serial.print("Initializing SD card...");
-
   // see if the card is present and can be initialized:
-  if (!SD.begin(chipSelect)) {
-    Serial.println("Card failed, or not present");
-    // don't do anything more:
-    while (1);
+  while (!SD.begin(chipSelect))
+  {
+    digitalWrite(RED_LED, HIGH);
+    delay(500);
+    digitalWrite(RED_LED, LOW);
+    delay(500);
   }
-  Serial.println("card initialized.");
-
-
-  Serial.println();
-  Serial.print("Launch time: ");
-  Serial.print(hours);
-  Serial.print(":");
-  Serial.print(minutes);
-  Serial.print(":");
-  Serial.print(seconds);
-  Serial.println();
-  Serial.print("Saving data to: ");
-  Serial.println(filename);
 
 
   //Write header to logfile
   dataFile = SD.open(filename, FILE_WRITE);
   dataFile.println("DateTime,Level_mm,NTU");
   dataFile.close();
-
-  Serial.println("Begining logging routine ... Goodbye.");
-  Serial.end();
 
   //Go into standby
   rtc.standbyMode();
@@ -164,7 +140,7 @@ void loop()
     digitalWrite(H2O_LEVL_SWITCH, HIGH);
 
     //Allow time for water level sensor to stabalize (not sure what best duration is for this, check docs sheet?)
-    delay(1000);
+    delay(2000);
 
     float water_depth_mm = avgWaterLevl(N);
 
@@ -176,7 +152,7 @@ void loop()
     digitalWrite(TURB_SWITCH, HIGH);
 
     //Allow turbidty sensor to stabalize, looks like 1000 ms is adaquate.
-    delay(1000);
+    delay(2000);
 
     float turb_ntu = avgTurb(N);
 
@@ -235,7 +211,7 @@ float avgWaterLevl(int n)
 
     avg_depth = avg_depth + depth;
 
-    delay(1000);
+    delay(500);
 
   }
 
@@ -258,7 +234,7 @@ float avgTurb(int n)
 
     avg_turb_v = avg_turb_v + turb_voltage;
 
-    delay(1000);
+    delay(500);
 
   }
 
