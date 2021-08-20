@@ -60,35 +60,25 @@ const float DENSITY_WATER = 1.00;  // Pure water density.
 const float H2O_VREF = 3300.0; //Reference voltage, 3.3V for Adalogger M0.
 const float TURB_VREF = 5000.0; //Reference voltage, 5.0 for turbidity sensor (output from usb pin).
 const float MAX_ANALOG_VAL = 4096.0; // Maximum analog value at provided ADC resolution.
-const String filename = "DATA3.TXT";//Desired name for logfile.
-const int SATCOM_HOURS[] = {0,12};//24-Hour clock hours for which to send average sensor values over Iridium network.
-const int alarmIncMin = 1;//Number of minutes between sleep / read / log cycles.
+const String filename = "ANZACS2.TXT";//Desired name for logfile.
+const int SATCOM_HOURS[] = {0};//24-Hour clock hours for which to send average sensor values over Iridium network.
+const int alarmIncMin = 5;//Number of minutes between sleep / read / log cycles.
 const int N = 5;//Number of sensor readings to average.
 
-/*comment out if using RockBLOCk to set inital RTC time*/
-// Change these values to set the current initial time
-const int hours = 11;
-const int minutes = 58;
-const int seconds = 0;
-
-// Change these values to set the current initial date
-const int day = 10;
-const int month = 8;
-const int year = 21;
 
 #define IridiumSerial Serial1 // Serial for communicating with RockBlock
 
 //Define Global variables
 
 // Change these values to set the current initial time
-const int hours = 11;
-const int minutes = 58;
-const int seconds = 0;
+//const int hours = 1;
+//const int minutes = 30;
+//const int seconds = 0;
 
 // Change these values to set the current initial date
-const int day = 10;
-const int month = 8;
-const int year = 21;
+//const int day = 13;
+//const int month = 8;
+//const int year = 21;
 
 volatile bool matched = false;//Boolean variable for indicating alarm match
 
@@ -144,12 +134,12 @@ void setup()
   rtc.begin();    // Start the RTC in 24hr mode UTC from iridium network time
   
   //Uncomment if using RockBLOCk to set inital RTC time
-  //rtc.setTime(t.tm_hour, t.tm_min, t.tm_sec);  // Set the time
-  //rtc.setDate(t.tm_mday, (t.tm_mon + 1), (t.tm_year - 100)); // Set the date
+  rtc.setTime(t.tm_hour, t.tm_min, t.tm_sec);  // Set the time
+  rtc.setDate(t.tm_mday, (t.tm_mon + 1), (t.tm_year - 100)); // Set the date
 
   //Uncomment if user specifiying intial RTC time 
-  rtc.setTime(hours, minutes, seconds);  // Set the time
-  rtc.setDate(day, month, year); // Set the date
+//  rtc.setTime(hours, minutes, seconds);  // Set the time
+//  rtc.setDate(day, month, year); // Set the date
 
   rtc.setAlarmTime(rtc.getHours(), rtc.getMinutes() + alarmIncMin , rtc.getSeconds()); //Set the RTC alarm
   rtc.enableAlarm(rtc.MATCH_MMSS);
@@ -192,7 +182,7 @@ void setup()
 
   //Write header to logfile
   dataFile = SD.open(filename, FILE_WRITE);
-  dataFile.println("DateTime,Level_mm,NTU");
+  dataFile.println("DateTime,Level_mm,NTU_mV");
   dataFile.close();
 
   //Set Adalogger into low power standby mode
@@ -218,7 +208,7 @@ void loop()
         AVG_TURB = AVG_TURB / (float)AVG_N;
 
         //Assemble datastring for transmission 
-        String datastring = String(rtc.getYear()) + ":" + String(rtc.getMonth()) + ":" + String(rtc.getDay()) + " " + String(rtc.getHours()) + ":" + String(rtc.getMinutes()) + ":" + String(rtc.getSeconds())+ "," + String(AVG_LEVL) + " mm ," + String(AVG_TURB) + "NTU";
+        String datastring = String(rtc.getYear()) + ":" + String(rtc.getMonth()) + ":" + String(rtc.getDay()) + " " + String(rtc.getHours()) + ":" + String(rtc.getMinutes()) + ":" + String(rtc.getSeconds())+ "," + String(AVG_LEVL) + " mm ," + String(AVG_TURB) + "mV";
 
         //Wake of RockBlock modem 
         modem.begin();
