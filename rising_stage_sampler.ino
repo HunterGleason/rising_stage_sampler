@@ -60,7 +60,7 @@ const float DENSITY_WATER = 1.00;  // Pure water density.
 const float H2O_VREF = 3300.0; //Reference voltage, 3.3V for Adalogger M0.
 const float TURB_VREF = 5000.0; //Reference voltage, 5.0 for turbidity sensor (output from usb pin).
 const float MAX_ANALOG_VAL = 4096.0; // Maximum analog value at provided ADC resolution.
-const String filename = "ANZACS2.TXT";//Desired name for logfile.
+const String filename = "TST.TXT";//Desired name for logfile.
 const int SATCOM_HOURS[] = {0};//24-Hour clock hours for which to send average sensor values over Iridium network.
 const int alarmIncMin = 5;//Number of minutes between sleep / read / log cycles.
 const int N = 5;//Number of sensor readings to average.
@@ -98,7 +98,7 @@ int AVG_N = 0;
 //Instantiate rtc, dataFile and IridiumSBD
 RTCZero rtc;
 File dataFile;
-IridiumSBD modem(IridiumSerial, ROCKBLOCK_SWITCH);
+IridiumSBD modem(IridiumSerial);
 
 
 //Runs Once
@@ -106,15 +106,19 @@ void setup()
 {
   delay(20000);
 
+  pinMode(ROCKBLOCK_SWITCH, OUTPUT);
+  digitalWrite(ROCKBLOCK_SWITCH, HIGH);
+
   int err;
 
   // Start the serial port connected to the satellite modem
   IridiumSerial.begin(19200);
 
-  delay(1000);
   // If we're powering the device by USB, tell the library to
   // relax timing constraints waiting for the supercap to recharge.
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);
+
+  delay(2000);
 
   // Begin satellite modem operation
   err = modem.begin();
@@ -132,14 +136,14 @@ void setup()
 
 
   rtc.begin();    // Start the RTC in 24hr mode UTC from iridium network time
-  
+
   //Uncomment if using RockBLOCk to set inital RTC time
   rtc.setTime(t.tm_hour, t.tm_min, t.tm_sec);  // Set the time
   rtc.setDate(t.tm_mday, (t.tm_mon + 1), (t.tm_year - 100)); // Set the date
 
-  //Uncomment if user specifiying intial RTC time 
-//  rtc.setTime(hours, minutes, seconds);  // Set the time
-//  rtc.setDate(day, month, year); // Set the date
+  //Uncomment if user specifiying intial RTC time
+  //  rtc.setTime(hours, minutes, seconds);  // Set the time
+  //  rtc.setDate(day, month, year); // Set the date
 
   rtc.setAlarmTime(rtc.getHours(), rtc.getMinutes() + alarmIncMin , rtc.getSeconds()); //Set the RTC alarm
   rtc.enableAlarm(rtc.MATCH_MMSS);
@@ -147,8 +151,10 @@ void setup()
   //Attach an alarm interrupt routine
   rtc.attachInterrupt(alarmMatch);
 
-  // Put modem to sleep
-  err = modem.sleep();
+  // Kill power to modem
+
+  IridiumSerial.end();
+  digitalWrite(ROCKBLOCK_SWITCH, LOW);
 
   //Set analog resolution to 12 bit
   analogReadResolution(12);
@@ -198,19 +204,32 @@ void loop()
     //Reset RTC alarm 'matched' bool
     matched == false;
 
-    //If hour matches one of specified sat_com transmit hours, send period average data values 
+    //If hour matches one of specified sat_com transmit hours, send period average data values
     for (int i = 0; i < (sizeof(SATCOM_HOURS) / sizeof(SATCOM_HOURS[0])); i++)
     {
       if (rtc.getHours() == SATCOM_HOURS[i] && rtc.getMinutes() < (alarmIncMin + 1))
       {
-        //Compute period averages 
+        //Compute period averages
         AVG_LEVL = AVG_LEVL / (float)AVG_N;
         AVG_TURB = AVG_TURB / (float)AVG_N;
 
-        //Assemble datastring for transmission 
-        String datastring = String(rtc.getYear()) + ":" + String(rtc.getMonth()) + ":" + String(rtc.getDay()) + " " + String(rtc.getHours()) + ":" + String(rtc.getMinutes()) + ":" + String(rtc.getSeconds())+ "," + String(AVG_LEVL) + " mm ," + String(AVG_TURB) + "mV";
+        //Assemble datastring for transmission
+        String datastring = String(rtc.getYear()) + ":" + String(rtc.getMonth()) + ":" + String(rtc.getDay()) + " " + String(rtc.getHours()) + ":" + String(rtc.getMinutes()) + ":" + String(rtc.getSeconds()) + "," + String(AVG_LEVL) + " mm ," + String(AVG_TURB) + "mV";
 
-        //Wake of RockBlock modem 
+        digitalWrite(ROCKBLOCK_SWITCH, HIGH);
+
+        delay(100);
+
+        int err;
+
+        // Start the serial port connected to the satellite modem
+        IridiumSerial.begin(19200);
+
+        // If we're powering the device by USB, tell the library to
+        // relax timing constraints waiting for the supercap to recharge.
+        modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE);
+
+        //Wake of RockBlock modem
         modem.begin();
 
         //Send message, light up LED as indicator, will try for 5-min max by default, during which no measurments will be taken
@@ -218,10 +237,12 @@ void loop()
         modem.sendSBDText(datastring.c_str());
         digitalWrite(RED_LED, LOW);
 
-        //Put RockBlock modem to sleep 
-        modem.sleep();
+        //Put RockBlock modem to sleep
 
-        //Reset average variables 
+        IridiumSerial.end();
+        digitalWrite(ROCKBLOCK_SWITCH, LOW);
+
+        //Reset average variables
         AVG_LEVL = 0.0;
         AVG_TURB = 0.0;
         AVG_N = 0;
@@ -232,7 +253,7 @@ void loop()
     digitalWrite(H2O_LEVL_SWITCH, HIGH);
 
     //Allow time for water level sensor to stabilize (not sure what best duration is for this, check docs sheet?)
-    delay(2000);
+    delay(100);
 
     //Get an N average depth reading
     float water_depth_mm = avgWaterLevl(N);
@@ -247,7 +268,7 @@ void loop()
     digitalWrite(TURB_SWITCH, HIGH);
 
     //Allow turbidity sensor to stabilize, datasheet indicates 500 ms is enough.
-    delay(1000);
+    delay(50);
 
     float turb_ntu = avgTurb(N);
 
@@ -304,7 +325,7 @@ float avgWaterLevl(int n)
 
     avg_depth = avg_depth + depth;
 
-    delay(500);
+    delay(50);
 
   }
 
@@ -327,7 +348,7 @@ float avgTurb(int n)
 
     avg_turb = avg_turb + turb_voltage;
 
-    delay(500);
+    delay(50);
 
   }
 
