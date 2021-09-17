@@ -1,248 +1,188 @@
-/***********************************************************
-  Author: Hunter Gleason
-  Date:June 3, 2021
-  Description: This script is a data logging script intended
-  for use with rising stage samplers. Using a Adalogger M0
-  MCU, a DFRobot Gravity Throw-in type liquid level tansmitter
-  and a DFRobot Gravity Analog Turbidity Sensor for reading
-  and recording stage and turbidty to a SD card. Note, because
-  a voltage divider is used to scale the 5V analog output
-  from the turbidity to ~0-3.3V, it is assumed that
-  the user provide their own calibration.
 
-  Code based on:
-  https://wiki.dfrobot.com/Gravity__Analog_Current_to_Voltage_Converter_for_4~20mA_Application__SKU_SEN0262
-  https://wiki.dfrobot.com/Throw-in_Type_Liquid_Level_Transmitter_SKU_KIT0139
-  https://www.arduino.cc/en/Tutorial/SleepRTCAlarm
-  See wiring diagram:
-  https://github.com/HunterGleason/rising_stage_sampler/blob/with_turb/siphon_sampler.svg
+/*
+  TPL5110_Blink_Demo_example.ino
 
- ****************************************************/
-
-/*PINS
-   Liquid level sensor analog pin -> A3
-   Turbidty sensor analog pin -> A4
-   Liquid level sensor switch pin -> D9
-   Turbidty sensor switch pin -> D6
+  Simple Example Code for the TPL5110 Nano Power Timer Hookup Guide. This code
+  simply blinks the pin 13 LED and writes pin 4 (donePin pin) high. This shift from
+  LOW to HIGH of the donePin pin, signals to the Nano Power Timer to turn off the
+  microcontroller.
+  SparkFun Electronics
+  Date: May, 2019
+  Author: Elias Santistevan
 */
 
-
-
-//Load required libriries
+#include <IridiumSBD.h> // Click here to get the library: http://librarymanager/All#IridiumSBDI2C
+#include <Wire.h> //Needed for I2C communication
+#include "RTClib.h"
 #include <SPI.h>
 #include <SD.h>
-#include <RTCZero.h>
-#include <ArduinoLowPower.h>
-
-//Define pins
-const byte H2O_LEVL_PIN = A3; //Define pin for reading liquid level sensor
-const byte TURB_PIN = A4; //Define pin for reading turbidity sensor
-const byte H2O_LEVL_SWITCH = 9; //Attach transister gate to digtial pin 10 for switching power level sensor
-const byte TURB_SWITCH = 6; //Attach optocoupler
-const byte RED_LED = 13; //Turn of built in LED to conserve power
-const byte chipSelect = 4;  //** CS - pin 4 (for MKRZero SD: SDCARD_SS_PIN)
-
-//Define Global constants
-const float RANGE = 5000.0; // Depth measuring range 5000mm (for water)
-const float CURRENT_INIT = 4.19; // Current @ 0mm (uint: mA)
-const float DENSITY_WATER = 1.00;  // Pure water density
-const float H2O_VREF = 3300.0; //Refrence voltage, 3.3V for Adalogger M0, this should be measured for better accuracy
-const float TURB_VREF = 5000.0; //Refrence voltage, 5.0 for turbidity sensor (output from usb pin), this should be measured for better accuracy
-const String filename = "DATA.TXT"; //Desired name for logfile, change as needed, no more than 8 charachters!! w/ out EXT
-
-/* Change these values to set the current initial time (Time @ launch) */
-const byte hours = 12;
-const byte minutes = 46;
-const byte seconds = 0;
-/* Change these values to set the current initial date (Date @ launch)*/
-const byte day = 9;
-const byte month = 8;
-const byte year = 21;
-
-const int alarmIncMin = 1; //Number of minutes between sleep / read / log cycles (i.e., logging interval), change as needed
-const int N = 5; //Number of sensor readings to average
-
-//Define Global varibles
-bool matched = false; //Boolean variable for indicating alarm match
 
 
-//Instantiate rtc and dataFile
-RTCZero rtc;
+
+RTC_PCF8523 rtc;
+
 File dataFile;
 
+#define IridiumWire Wire
+IridiumSBD modem(IridiumWire);
 
+int led = 13; // Pin 13 LED
+int donePin = 5; // Done pin - can be any pin.
+int modemSet = 9; // Power set pin for Iridium Modem
+int modemUnset = 6; // Power unset pin for Iridium Modem
+int h2oSet = 10; // Power set pin for H2O level sensor
+const int h2oUnset = 11; // Power unset pin for H2O level sensor
+const byte H2O_LEVL_PIN = A0; //Define pin for reading liquid level sensor
+const byte TURB_PIN = A1;
+const int TURB_SWITCH = 12;
+const byte chipSelect = 4; 
 
-//Runs Once
-void setup()
-{
-  delay(20000);
+//Define Global constants, change as required
+const float RANGE = 5000.0; // Depth measuring range 5000mm (for water).
+const float CURRENT_INIT = 4.10; // Current @ 0mm (unit: mA)
+const float DENSITY_WATER = 1.00;  // Pure water density.
+const float H2O_VREF = 3300.0; //Reference voltage, 3.3V for Adalogger M0, measure with multimeter for better accuracy
+const float TURB_VREF = 3000.0; //Reference voltage for turbidity sensor when NTU = 0, using mulitmeter adjust potentiometer so that analog output is 3.0 V when NTU equals 0, then finish calibration!
+const float MAX_ANALOG_VAL = 4096.0; // Maximum analog value at provided ADC resolution.
+const String filename = "YUPPY_1.TXT";//Desired name for logfile !!!must be less than 8 char!!!
+const int SATCOM_HOURS[] = {0};//24-Hour clock hours for which to send average sensor values over Iridium network.
+const int LoggerIncMin = 5; //Number of minutes between sleep / read / log cycles, should match setting on TPL5110, and be >= 5 min if using Iridium modem
+const int N = 5; //Number of sensor readings to average.
 
-  rtc.begin();    // Start the RTC in 24hr mode
-  rtc.setTime(hours, minutes, seconds);   // Set the time
-  rtc.setDate(day, month, year);    // Set the date
-
-  rtc.setAlarmTime(hours, minutes + alarmIncMin , seconds); //Set the RTC alarm
-  rtc.enableAlarm(rtc.MATCH_MMSS);
-
-  //Attach an alarm interupt routine
-  rtc.attachInterrupt(alarmMatch);
-
-  //Set resolution to 12 bit
-  analogReadResolution(12);
-
-  //Initlize water level input pin as input
-  pinMode(H2O_LEVL_PIN, INPUT);
-
-  //Initlize turbidity input pin as input
-  pinMode(TURB_PIN, INPUT);
-
-  //Initlize water level switch pin as output and switch off 12V power until next reading
-  pinMode(H2O_LEVL_SWITCH, OUTPUT);
-  digitalWrite(H2O_LEVL_SWITCH, LOW);
-
-  //Initilize turbidity witch pin as output and turn off 5V from USB pin until next reading
-  pinMode(TURB_SWITCH, OUTPUT);
-  digitalWrite(TURB_SWITCH, LOW);
-
-  //Turn off RED LED to save power
-  pinMode(RED_LED, OUTPUT);
-  digitalWrite(RED_LED, LOW);
-
-  // see if the card is present and can be initialized:
-  while (!SD.begin(chipSelect))
-  {
-    digitalWrite(RED_LED, HIGH);
-    delay(500);
-    digitalWrite(RED_LED, LOW);
-    delay(500);
-  }
-
-
-  //Write header to logfile
-  dataFile = SD.open(filename, FILE_WRITE);
-  dataFile.println("DateTime,Level_mm,NTU");
-  dataFile.close();
-
-  //Go into standby
-  rtc.standbyMode();
-}
-
-//Runs repeatedly
-void loop()
-{
-  //If alarm time has been matched
-  if (matched)
-  {
-    //Reset 'matched' alarm
-    matched == false;
-
-    //Provide 12V on the water level senor through 4N35 optocoupler
-    digitalWrite(H2O_LEVL_SWITCH, HIGH);
-
-    //Allow time for water level sensor to stabalize (not sure what best duration is for this, check docs sheet?)
-    delay(2000);
-
-    float water_depth_mm = avgWaterLevl(N);
-
-    //Switch off 12V to water level sensor to save battery
-    digitalWrite(H2O_LEVL_SWITCH, LOW);
-
-
-    //Provide 5V on the turbidity sensor through 4N35 optocoupler
-    digitalWrite(TURB_SWITCH, HIGH);
-
-    //Allow turbidty sensor to stabalize, looks like 1000 ms is adaquate.
-    delay(2000);
-
-    float turb_ntu = avgTurb(N);
-
-    //Switch off 5V to turbidty probe to save battery
-    digitalWrite(TURB_SWITCH, LOW);
-
-    //Data string to write to SD card
-    String datastring = String(rtc.getDay()) + "-" + String(rtc.getMonth()) + "-" + String(rtc.getYear()) + " " + String(rtc.getHours()) + ":" + String(rtc.getMinutes()) + ":" + String(rtc.getSeconds()) + "," + String(water_depth_mm) + "," + String(turb_ntu);
-
-    dataFile = SD.open(filename, FILE_WRITE);
-    if (dataFile)
-    {
-      dataFile.println(datastring);
-      dataFile.close();
-    }
-
-
-    //Set next rtc wakeup alarm
-    int alarmMinutes = rtc.getMinutes();
-    alarmMinutes += alarmIncMin;
-    if (alarmMinutes >= 60) {
-      alarmMinutes -= 60;
-    }
-    rtc.setAlarmTime(rtc.getHours(), alarmMinutes, rtc.getSeconds());
-
-    rtc.standbyMode();// Low power sleep until next alarm match
-  }
-}
-
-//Void function for changing state of 'matched'
-void alarmMatch() {
-  matched = true;
-}
-
-//Function for converting turbidity probe output voltage to NTU (from calibration)
+//Function for converting voltage read from turbidity sensor 'turb_volt' to NTU units (from calibration), change to observed calbration for setup.
 float Volt_to_NTU(float turb_volt)
 {
   return turb_volt;
 }
 
-//Function for obtaining mean water level from n sensor readings
-float avgWaterLevl(int n)
-{
-  float avg_depth = 0.0;
+void setup() {
 
-  for (int i = 0; i < n; i++)
-  {
-    //Read voltage output of H2O level sensor
-    float level_voltage =  analogRead(H2O_LEVL_PIN) * (H2O_VREF / 4096.0);
-
-    //Convert to current
-    float level_current = level_voltage / 120.0; //Sense Resistor:120ohm
-
-    //Calculate water depth (mm) from current readings (see datasheet)
-    float depth = (level_current - CURRENT_INIT) * (RANGE / DENSITY_WATER / 16.0);
-
-    avg_depth = avg_depth + depth;
-
+  while (!SD.begin(chipSelect)) {
+    digitalWrite(led, HIGH);
     delay(500);
-
+    digitalWrite(led, LOW);
   }
 
-  avg_depth = avg_depth / (float)n;
+  pinMode(led, OUTPUT);
+  pinMode(donePin, OUTPUT);
 
-  return avg_depth;
+  pinMode(modemSet, OUTPUT);
+  pinMode(modemUnset, OUTPUT);
+
+  pinMode(h2oSet, OUTPUT);
+  pinMode(h2oUnset, OUTPUT);
+
+  pinMode(TURB_SWITCH, OUTPUT);
+
+  // Start the I2C wire port connected to the satellite modem
+  Wire.begin(0x68, 100000);
+  Wire.begin(0x63, 400000);
+
+  rtc.begin();
+
+  DateTime now = rtc.now();
+  int NOW_HOUR = now.hour();
+  int NOW_MINT = now.minute();
+
+  //Set analog resolution to 12 bit
+  analogReadResolution(12);
+  
+  for (int i = 0; i < (sizeof(SATCOM_HOURS) / sizeof(SATCOM_HOURS[0])); i++)
+  {
+    if ( NOW_HOUR == SATCOM_HOURS[i] && NOW_MINT <= LoggerIncMin )
+    {
+      if (modem.isConnected()) // Check that the Qwiic Iridium is connected
+      {
+        //Get an N average depth reading
+        float level_voltage =  analogRead(H2O_LEVL_PIN) * (H2O_VREF / MAX_ANALOG_VAL);
+        float level_current = level_voltage / 120.0; //Sense Resistor:120ohm
+        float depth = (level_current - CURRENT_INIT) * (RANGE / DENSITY_WATER / 16.0);
+
+        //Get an N average NTU reading
+        //Compute average voltage output of turbidity probe (need to establish / verify voltage NTU curve)
+        float turb_voltage = analogRead(TURB_PIN) * (TURB_VREF / MAX_ANALOG_VAL); // Convert the analog reading (which goes from 0 - 4096) to a voltage (0 - 5V):
+        float turb_ntu = Volt_to_NTU(turb_voltage);
+
+        //Assemble datastring for transmission
+        String datastring = String(now.year()) + ":" + String(now.month()) + ":" + String(now.day()) + " " + String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second()) + "," + String(depth) + " mm ," + String(turb_ntu) + "mV";
+
+
+        digitalWrite(modemSet, HIGH); // Flip latching relay power to on
+        delay(10);
+        digitalWrite(modemSet, LOW); // Latched, so set low to save power
+
+        //        modem.enableSuperCapCharger(true); // Enable the super capacitor charger
+        //        while (!modem.checkSuperCapCharger()) ; // Wait for the capacitors to charge
+        //        modem.enable9603Npower(true); // Enable power for the 9603N
+        //        modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // Assume 'USB' power (slow recharge)
+        //        modem.begin(); // Wake up the modem
+        //        modem.sendSBDText(datastring.c_str()); // Send a message
+        //        modem.sleep(); // Put the modem to sleep
+        //        modem.enable9603Npower(false); // Disable power for the 9603N
+        //        modem.enableSuperCapCharger(false); // Disable the super capacitor charger
+
+        delay(4000);
+
+        digitalWrite(modemUnset, HIGH); // Flip latching relay power to off
+        delay(10);
+        digitalWrite(modemUnset, LOW); // Latched, so set low to save power
+      }
+    }
+  }
+
+
+
+  digitalWrite(h2oSet, HIGH);
+  delay(10);
+  digitalWrite(h2oSet, LOW);
+
+  delay(1000);
+
+  float level_voltage =  analogRead(H2O_LEVL_PIN) * (H2O_VREF / MAX_ANALOG_VAL);
+  float level_current = level_voltage / 120.0; //Sense Resistor:120ohm
+  float depth = (level_current - CURRENT_INIT) * (RANGE / DENSITY_WATER / 16.0);
+
+  digitalWrite(h2oUnset, HIGH);
+  delay(10);
+  digitalWrite(h2oUnset, LOW);
+
+
+  digitalWrite(TURB_SWITCH, HIGH);
+
+  delay(600);
+
+  //Get an N average NTU reading
+  //Compute average voltage output of turbidity probe (need to establish / verify voltage NTU curve)
+  float turb_voltage = analogRead(TURB_PIN) * (TURB_VREF / MAX_ANALOG_VAL); // Convert the analog reading (which goes from 0 - 4096) to a voltage (0 - 5V):
+  float turb_ntu = Volt_to_NTU(turb_voltage);
+
+  digitalWrite(TURB_SWITCH, LOW);
+
+  String datastring = String(now.year()) + ":" + String(now.month()) + ":" + String(now.day()) + " " + String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second()) + "," + String(depth) + " mm ," + String(turb_ntu) + "mV";
+
+  //Write datastring and close logfile on SD card
+  dataFile = SD.open(filename, FILE_WRITE);
+  if (dataFile)
+  {
+    dataFile.println(datastring);
+    dataFile.close();
+  }
 
 }
 
-//Function for obtaining mean turbidty from n sensor readings
-float avgTurb(int n)
-{
-  float avg_turb_v = 0.0;
+void loop() {
+  // Blink.
+  digitalWrite(led, HIGH);
+  delay(1000);
+  digitalWrite(led, LOW);
+  delay(1000);
 
-  for (int i = 0; i < n; i++)
-  {
-
-    //Compute average voltage output of turbity probe (need to establish / verify voltage NTU curve)
-    float turb_voltage = analogRead(TURB_PIN) * (TURB_VREF / 4096.0); // Convert the analog reading (which goes from 0 - 4096) to a voltage (0 - 5V):
-
-    avg_turb_v = avg_turb_v + turb_voltage;
-
-    delay(500);
-
-  }
-
-  avg_turb_v = avg_turb_v / (float)n;
-
-  //Need to convert voltage to NTU here (calibration)
-  float avg_ntu = Volt_to_NTU(avg_turb_v);
-
-  return avg_ntu;
+  // We're done!
+  // It's important that the donePin is written LOW and THEN HIGH. This shift
+  // from low to HIGH is how the Nano Power Timer knows to turn off the
+  // microcontroller.
+  digitalWrite(donePin, LOW);
+  digitalWrite(donePin, HIGH);
+  delay(10);
 
 }
