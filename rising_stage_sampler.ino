@@ -46,7 +46,7 @@ const float H2O_VREF = 3300.0; //Reference voltage, 3.3V for Adalogger M0, measu
 const float TURB_VREF = 5000.0; //Reference voltage for turbidity sensor, measure with multimeter for better accuracy
 const int ANLG_RES = 12; //Desired analog resolution 10,12 or 16.
 const float MAX_ANALOG_VAL = 4096.0; // Maximum analog value at specified ADC resolution.
-const String filename = "LOGFILE.TXT";//Desired name for logfile !!!must be less than 8 char!!!
+const String filename = "BOWTEST.TXT";//Desired name for logfile !!!must be less than 8 char!!!
 const int N = 5; //Number of sensor readings to average.
 
 /*Function for converting voltage read from turbidity sensor 'turb_volt' to NTU units (from calibration),
@@ -54,9 +54,14 @@ const int N = 5; //Number of sensor readings to average.
    is 3.0V when NTU equals zero.
 */
 
-float Volt_to_NTU(float turb_volt)
+float Volt_to_NTU(float turb_volt_mV)
 {
-  return turb_volt;
+
+  float turb_volt = turb_volt_mV / 1000.0;
+  
+  float ntu = (-1120.4*pow(turb_volt,2)) + (5742.3*turb_volt) - 4352.9;
+  
+  return ntu;
 }
 
 
@@ -168,6 +173,9 @@ void setup() {
 
   //Minimum of 500 ms for turbidity sensor to stabalize
   delay(600);
+
+  //Uncomment for setting PCB poteniometer
+  //delay(60000);
 
   //Get a N average NTU reading
   float turb_ntu = avgTurb(N);
