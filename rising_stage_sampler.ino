@@ -29,6 +29,9 @@
 RTC_PCF8523 rtc; // PCF8523 RTC
 File dataFile;// Logging file
 
+#define IridiumWire Wire
+IridiumSBD modem(IridiumWire);
+
 //Define Pins
 const byte led = 13; // Pin 13 LED
 const byte donePin = 5; // TPL5110 done pin.
@@ -36,9 +39,9 @@ const byte h2oSet = 10; // Power set pin for H2O level sensor
 const byte h2oUnset = 11; // Power unset pin for H2O level sensor
 const byte H2O_LEVL_PIN = A0; //Analog pin for reading liquid level sensor output
 const byte TURB_PIN = A1; //Analog pin for reading turbidity sensor output
-const byte TURB_SWITCH = 12; //Pin for switching power to turbidity sensor using 4N37 optocoupler
+const byte IRID_SWITCH = 12; //Pin for switching power to Iridium modem using 4N37 optocoupler
 const byte chipSelect = 4; //Chip select pin for MicroSD breakout
-const byte tempPin = 6;
+const byte tempPin = 6; // One wire pin for communicating with DS18B20 temperature probe 
 
 //Define Global constants, change as required
 const float RANGE = 5000.0; // Depth measuring range 5000mm (for water).
@@ -50,6 +53,10 @@ const int ANLG_RES = 12; //Desired analog resolution 10,12 or 16.
 const float MAX_ANALOG_VAL = 4096.0; // Maximum analog value at 12-bit ADC resolution.
 char **filename;//Desired name for data file !!!must be less than equal to 8 char!!!
 char **N_str; //Number of ultrasonic reange sensor readings to average.
+char **h2otemp; // Binary int, either '0: false' for no water temperture measuremnt, or '1: true'.
+char **satcom // Binary int, either '0: false' for no satallite communication, or '1: true'.
+char **cal_slope; // Calibration slope coefficent for converting mV to NTU (i.e., from calibration)
+char **cal_intercept; // Calibration intercept term for converting mV to NTU (i.e., from calibration)
 
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(tempPin);
@@ -58,18 +65,14 @@ OneWire oneWire(tempPin);
 DallasTemperature sensors(&oneWire);
 
 /*Function for converting voltage read from turbidity sensor 'turb_volt' to NTU units (from calibration),
-   change to observed calbration for setup. With a multimeter adjust PCB potentiometer so that output voltage 
-   is ~2.8-3.3V when NTU equals zero. Then perform calibration. 
+   change to observed calbration for setup. !!Note!! With a multimeter adjust PCB potentiometer so that output voltage 
+   is ~2.8V when NTU equals zero (i.e., deinoized H2O). Then perform calibration. 
 */
 
-float Volt_to_NTU(float turb_volt_mV)
+float Volt_to_NTU(float turb_volt_mV,float beta,float intercept)
 {
 
-  //float turb_volt = turb_volt_mV / 1000.0;
-  
-  //float ntu = (-1120.4*pow(turb_volt,2)) + (5742.3*turb_volt) - 4352.9;
-
-  float  ntu = turb_volt_mV;
+  float ntu = (turb_volt_mV*beta)+intercept;
   
   return ntu;
 }
@@ -105,7 +108,7 @@ float avgWaterLevl(int n)
 
 
 //Function for obtaining mean turbidity from n sensor readings
-float avgTurb(int n)
+float avgTurb(int n,float beta, float intercept)
 {
   float avg_turb = 0.0; //Average turbidity voltage
 
@@ -117,13 +120,13 @@ float avgTurb(int n)
 
     avg_turb = avg_turb + turb_voltage;
 
-    delay(50);
+    delay(100);
 
   }
 
   avg_turb = avg_turb / (float)n; //Calculate average voltage of n readings
 
-  avg_turb = Volt_to_NTU(avg_turb);//Need to convert voltage to NTU here (calibration)
+  avg_turb = Volt_to_NTU(avg_turb,beta,intercept);//Need to convert voltage to NTU here (calibration)
 
   return avg_turb;
 
@@ -146,7 +149,7 @@ void setup() {
   pinMode(h2oSet, OUTPUT);
   pinMode(h2oUnset, OUTPUT);
 
-  pinMode(TURB_SWITCH, OUTPUT);
+  pinMode(IRID_SWITCH, OUTPUT);
 
   // Start the I2C wire port connected to the PCF8523 RTC
   Wire.begin(0x68, 100000);
@@ -195,24 +198,31 @@ void setup() {
   //Set low to save power (latching)
   digitalWrite(h2oUnset, LOW);
 
-  //Set 5V power to turbidity sensor
-  digitalWrite(TURB_SWITCH, HIGH);
 
-  //Minimum of 500 ms for turbidity sensor to stabalize
-  delay(300);
+  cal_slope = (char**)cp["slope"];
+  cal_intercept = (char**)cp["intercept"];
+  float slope = String(cal_slope[0]).toFloat(); 
+  float intercept = String(cal_intercept[0]).toFloat();
 
   //Uncomment for setting PCB poteniometer
   //delay(60000);
-
+  
   //Get a N average NTU reading
-  float turb_ntu = avgTurb(N);
+  float turb_ntu = avgTurb(N,beta,intercept);
 
-  //Unset 5V power to turbidity sensor
-  digitalWrite(TURB_SWITCH, LOW);
+  //See if temperature measurment is to be made
+  h2otemp = (char**)cp["h2o_temp"];
 
-  sensors.requestTemperatures(); // Send the command to get temperatures
-  // We use the function ByIndex, and as an example get the temperature from the first (and only) sensor only.
-  float tempC = sensors.getTempCByIndex(0);
+  // NA value = -99.0
+  float tempC = -99.0;
+  
+  //If h20_temp parameter is true make a measurment 
+  if(String(h2otemp[0]).toInt() == 1)
+  {  
+    sensors.requestTemperatures(); // Send the command to get temperatures
+    // We use the function ByIndex, and as an example get the temperature from the first (and only) sensor only.
+    tempC = sensors.getTempCByIndex(0);
+  }
   
 
   //Assemble a data string for logging to SD, with time and average level NTU values
@@ -237,6 +247,66 @@ void setup() {
   {
     dataFile.println(datastring);
     dataFile.close();
+  }
+
+  //Get satcom parameter from file
+  satcom = (char**)cp["satcom"];
+  
+  //Check that satcoms are being used, the iridium modem is connected and the the clock has just reached midnight (i.e.,current time is within one logging interval of midnight)
+  if ((int) now.hour() == 0 && String(satcom[0]).toInt() == 0)
+  {
+
+    if (!SD.exists("IRID.CSV"))
+    {
+      dataFile = SD.open("IRID.CSV", FILE_WRITE);
+      dataFile.println("day,day1");
+      dataFile.println(String(now.day())+","+String(now.day()));
+      dataFile.close();
+
+    }
+
+
+    CSV_Parser cp(/*format*/ "s-", /*has_header*/ true, /*delimiter*/ ',');
+
+    
+    while (!cp.readSDfile("/IRID.CSV"))
+    {
+      digitalWrite(led, HIGH);
+      delay(500);
+      digitalWrite(led, LOW);
+      delay(500);
+    }
+    
+    char **irid_day = (char**)cp["day"];
+
+    if (String(irid_day[0]).toInt() == (int) now.day())
+    {
+
+      //Update IRID.CSV with new day
+      SD.remove("IRID.CSV");
+      dataFile = SD.open("IRID.CSV", FILE_WRITE);
+      dataFile.println("day,day1");
+      DateTime next_day = (DateTime(now.year(),now.month(),now.day()) + TimeSpan(1,0,0,0));
+      dataFile.println(String(next_day.day())+","+String(next_day.day()));
+      dataFile.close();
+
+      //Provide power to Iridium modem via optocoupler
+      digitalWrite(IRID_SWITCH,HIGH);
+      delay(100);
+
+      modem.enableSuperCapCharger(true); // Enable the super capacitor charger
+      while (!modem.checkSuperCapCharger()) ; // Wait for the capacitors to charge
+      modem.enable9603Npower(true); // Enable power for the 9603N
+      modem.begin(); // Wake up the 9603N and prepare it for communications.
+      modem.sendSBDText(datastring.c_str()); // Send datastring message
+      modem.sleep(); // Put the modem to sleep
+      modem.enable9603Npower(false); // Disable power for the 9603N
+      modem.enableSuperCapCharger(false); // Disable the super capacitor charger
+      modem.enable841lowPower(true); // Enable the ATtiny841's low power mode (optional)
+
+      digitalWrite(IRID_SWITCH,LOW);
+      
+    }
   }
 
 }
