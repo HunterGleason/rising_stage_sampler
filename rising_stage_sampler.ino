@@ -54,7 +54,7 @@ const float MAX_ANALOG_VAL = 4096.0; // Maximum analog value at 12-bit ADC resol
 char **filename;//Desired name for data file !!!must be less than equal to 8 char!!!
 char **N_str; //Number of ultrasonic reange sensor readings to average.
 char **h2otemp; // Binary int, either '0: false' for no water temperture measuremnt, or '1: true'.
-char **satcom // Binary int, either '0: false' for no satallite communication, or '1: true'.
+char **satcom; // Binary int, either '0: false' for no satallite communication, or '1: true'.
 char **cal_slope; // Calibration slope coefficent for converting mV to NTU (i.e., from calibration)
 char **cal_intercept; // Calibration intercept term for converting mV to NTU (i.e., from calibration)
 
@@ -208,7 +208,7 @@ void setup() {
   //delay(60000);
   
   //Get a N average NTU reading
-  float turb_ntu = avgTurb(N,beta,intercept);
+  float turb_ntu = avgTurb(N,slope,intercept);
 
   //See if temperature measurment is to be made
   h2otemp = (char**)cp["h2o_temp"];
