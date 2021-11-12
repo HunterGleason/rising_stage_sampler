@@ -168,7 +168,7 @@ void setup() {
   analogReadResolution(ANLG_RES);
 
   //Set paramters for parsing the parameter file
-  CSV_Parser cp(/*format*/ "ss", /*has_header*/ true, /*delimiter*/ ',');
+  CSV_Parser cp(/*format*/ "ssssss", /*has_header*/ true, /*delimiter*/ ',');
 
   //Read the parameter file off SD card (params.csv), 1/4-sec flash means file is not available
   while (!cp.readSDfile("/params.csv"))

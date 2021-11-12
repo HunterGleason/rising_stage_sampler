@@ -36,9 +36,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="2.8"
-     inkscape:cx="260.99664"
-     inkscape:cy="512.09845"
+     inkscape:zoom="0.98994949"
+     inkscape:cx="93.241689"
+     inkscape:cy="350.70538"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
@@ -1727,5 +1727,95 @@
        inkscape:transform-center-y="-12.716051"><tspan
          sodipodi:role="line"
          id="tspan877">Capacitor</tspan></text>
+    <path
+       style="fill:#000000;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;fill-opacity:0.56470591"
+       d="m 100.54167,108.47917 h 11.90625 v 1.32291 h -11.90625 z"
+       id="path347" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 100.54167,109.80208 99.218749,111.125 H 97.895832"
+       id="path349" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 100.54167,108.47917 -1.322921,-1.32292 h -1.322917"
+       id="path351" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 100.54167,109.27292 H 97.895832"
+       id="path353" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.11667px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       x="98.17218"
+       y="106.61355"
+       id="text1061-2-1-6-5-9-0-10-36"
+       inkscape:transform-center-x="-2.6153978"
+       inkscape:transform-center-y="-12.716055"><tspan
+         sodipodi:role="line"
+         id="tspan379">3.3V</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.11667px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       x="98.018372"
+       y="113.1552"
+       id="text1061-2-1-6-5-9-0-10-36-6"
+       inkscape:transform-center-x="-2.6153978"
+       inkscape:transform-center-y="-12.716055"><tspan
+         sodipodi:role="line"
+         id="tspan405">GND</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 59.266666,73.024999 h 4.7625 v 2.38125 c 0.327273,0.843134 1.60965,1.573004 10e-7,2.645834"
+       id="path407"
+       sodipodi:nodetypes="cccc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 64.029166,78.052082 v 13.229167 c 1.266018,1.022064 0.831148,1.855878 10e-7,2.645834 v 2.645834 c 1.709827,1.03744 1.081714,1.862262 0,2.645833 l 0,6.61458"
+       id="path409"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 97.895832,109.27292 H 64.029166"
+       id="path411" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 64.029166,109.27292 v -3.43959"
+       id="path413" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.11667px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="73.806427"
+       y="108.70574"
+       id="text1061-2-1-6-5-9-0-10-36-6-4"
+       inkscape:transform-center-x="-2.6153978"
+       inkscape:transform-center-y="-12.716055"><tspan
+         sodipodi:role="line"
+         id="tspan439"
+         x="73.806427"
+         y="108.70574">DATA</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 83.343749,82.020832 v 14.552083 c 1.584262,0.834142 1.936116,1.70547 10e-7,2.645835 l 0,7.9375 h 14.552083"
+       id="path441"
+       sodipodi:nodetypes="ccc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 87.312499,97.895832 v 7.937498 c 1.892355,1.84731 1.631388,3.5997 10e-7,5.29167"
+       id="path443"
+       sodipodi:nodetypes="ccc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 87.312499,111.125 H 97.895832"
+       id="path445" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.11667px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       x="114.19082"
+       y="110.07037"
+       id="text1061-2-1-6-5-9-0-10-36-6-4-1"
+       inkscape:transform-center-x="-2.6153978"
+       inkscape:transform-center-y="-12.716055"><tspan
+         sodipodi:role="line"
+         id="tspan471">DS18B20</tspan></text>
   </g>
 </svg>
