@@ -28,9 +28,9 @@ See [schematic](https://github.com/HunterGleason/MB7369_SnoDpth/blob/wth_iridium
 ## Calibration
 
 1. Leave the analog output from the potentiometer disconnected from the MCU [schematic](https://github.com/HunterGleason/rising_stage_sampler/blob/with_temp/siphon_sampler.svg), with a > 5V power supply connected measure the voltage on the output of the potentiometer, with the turbidity sensor in a solution of 0 NTU adjust the potentiometer so that the voltage is no more than 3.3 V, and ideally around 3.0 V. Once set, this should not have to be repeated. The output from the potentiometer can now be connected to the MCU [schematic](https://github.com/HunterGleason/rising_stage_sampler/blob/with_temp/siphon_sampler.svg).
-2. Set the 'slope' and 'intercept' parameters to 1.0 and 0.0, respectively (see Parameter File section), this will return the measured turbidity sensor voltage in millivolts (0-3300). 
+2. Set the *slope* and *intercept* parameters to 1.0 and 0.0, respectively (see Parameter File section), this will return the measured turbidity sensor voltage in millivolts (0-3300). 
 3. In the parameter file name the output file something recognizable, e.g., 'calibration.csv'.
-4. Recommend setting 'satcom' parameter to '0'. 
+4. Recommend setting *satcom* parameter to *0*. 
 5. Set other parameters to deployment values.
 6. Recommend setting TPL5110 interval to 30 seconds.
 7. Place turbidity probe in NTU standard solution, starting with NTU == 0. 
@@ -40,11 +40,11 @@ See [schematic](https://github.com/HunterGleason/MB7369_SnoDpth/blob/wth_iridium
 11. Repeat step 10 for each NTU solution standard.   
 12. Once all NTU solutions have been sampled, remove the SD card and open the CSV.
 13. For values below 400 NTU the relationship is linear, determine slope and intercept parameters from the calibration data.
-14. Be sure to update the 'slope' and 'intercept' values in the parameter file before deployment.  
+14. Be sure to update the *slope* and *intercept* values in the parameter file before deployment.  
 
 
 # Parameter File
-An example of the 'params.csv' is shown below, this file must be saved to the micro-SD before using this script:
+An example of the *params.csv* is shown below, this file must be saved to the micro-SD before using this script:
 
 filename,N,slope,intercept,h2o_temp,satcom<br/>
 logfile.csv,3,1.0,0.0,1,0
@@ -53,11 +53,10 @@ There are six columns that must be present, delimited by commas. The first colum
 
 # Error Codes
 
-This code utilizes the MCUs built in LED (assumed to be Pin 13) to communicate error codes. These include codes for issues associated with one of either the Iridium modem, RTC or SD card, or missing 'snolog.csv' parameter file. The built in LED will blink at time intervals corresponding to the error, these times are tabulated below:
+This code utilizes the MCUs built in LED (assumed to be Pin 13) to communicate error codes. These include codes for issues associated with one of either the Iridium modem, RTC or SD card, or missing *params.csv* parameter file. The built in LED will blink at time intervals corresponding to the error, the blink interval times are defined below:
 
 - LED off -> Normal operation (the LED on the TPL5110 and Iridium modem may be on)
-- 5-sec interval -> Iridium modem is not connected
-- 10-sec interval -> The RTC failed to initialize
-- 1-sec interval -> The SD card was unable to initialize, or is not present 
-- 1/4-sec interval -> The snowlog.csv parameter file is not present or cannot be opened
-- 2-sec interval -> The SHT30 sensor was unable to initialize
+- 1/2-sec interval -> Iridium modem is not connected
+- 1-sec interval -> The RTC failed to initialize
+- 1/2-sec interval -> The SD card was unable to initialize, or is not present 
+- 2-sec interval -> The *params.csv* parameter file is not present or cannot be opened

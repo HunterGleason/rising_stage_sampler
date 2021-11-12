@@ -140,6 +140,7 @@ void setup() {
     digitalWrite(led, HIGH);
     delay(500);
     digitalWrite(led, LOW);
+    delay(500);
   }
 
   //Set correct pin modes
@@ -155,7 +156,13 @@ void setup() {
   Wire.begin(0x68, 100000);
 
   // Start RTC
-  rtc.begin();
+  while(!rtc.begin())
+  {
+    digitalWrite(led,HIGH);
+    delay(1000);
+    digitalWrite(led,LOW);
+    delay(1000);
+  }
 
   //Set analog resolution to ANLG_RES bit
   analogReadResolution(ANLG_RES);
@@ -167,9 +174,9 @@ void setup() {
   while (!cp.readSDfile("/params.csv"))
   {
     digitalWrite(led, HIGH);
-    delay(250);
+    delay(2000);
     digitalWrite(led, LOW);
-    delay(250);
+    delay(2000);
   }
 
   //Read values from SNOW_PARAM.TXT into global varibles
