@@ -260,7 +260,7 @@ void setup() {
   satcom = (char**)cp["satcom"];
   
   //Check that satcoms are being used, the iridium modem is connected and the the clock has just reached midnight (i.e.,current time is within one logging interval of midnight)
-  if ((int) now.hour() == 0 && String(satcom[0]).toInt() == 0)
+  if ((int) now.hour() == 0 && String(satcom[0]).toInt() == 1)
   {
 
     if (!SD.exists("IRID.CSV"))
@@ -276,7 +276,7 @@ void setup() {
     CSV_Parser cp(/*format*/ "s-", /*has_header*/ true, /*delimiter*/ ',');
 
     
-    while (!cp.readSDfile("/IRID.CSV"))
+    while (!cp.readSDfile("IRID.CSV"))
     {
       digitalWrite(led, HIGH);
       delay(500);
